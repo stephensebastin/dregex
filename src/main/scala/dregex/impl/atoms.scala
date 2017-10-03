@@ -32,7 +32,11 @@ case object Epsilon extends AtomPart {
 }
 
 object CharInterval {
-  
+
+  def of(char: UnicodeChar): CharInterval = {
+    CharInterval(from = char, to = char)
+  }
+
   def calculateNonOverlapping(ranges: Seq[AbstractRange]): Map[AbstractRange, Seq[CharInterval]] = {
     val startSet = collection.mutable.Set[UnicodeChar]()
     val endSet = collection.mutable.Set[UnicodeChar]()

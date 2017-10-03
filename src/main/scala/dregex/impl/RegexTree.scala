@@ -252,17 +252,22 @@ object RegexTree {
   }
 
   trait CaptureGroup extends ComplexPart {
+    def id: String
     def value: Node
+    val startTag = new Tag(this, TagType.Start)
+    val endTag = new Tag(this, TagType.End)
     override def values = Seq(value)
     override def canonical = this
     override def precedence = 1
   }
 
-  case class PositionalCaptureGroup(value: Node) extends CaptureGroup {
+  case class PositionalCaptureGroup(index: Int, value: Node) extends CaptureGroup {
+    def id = index.toString
     override def toRegex = s"(${value.toRegex})"
   }
 
   case class NamedCaptureGroup(name: String, value: Node) extends CaptureGroup {
+    def id = name
     override def toRegex = s"(?<$name>${value.toRegex})"
   }
 

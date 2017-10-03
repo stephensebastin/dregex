@@ -3,7 +3,9 @@ package dregex.impl
 import scala.util.parsing.combinator.JavaTokenParsers
 import com.typesafe.scalalogging.StrictLogging
 import dregex.InvalidRegexException
+import dregex.impl.RegexTree.Node
 import dregex.impl.UnicodeChar.FromCharConversion
+
 import scala.collection.immutable.Seq
 
 class RegexParser extends JavaTokenParsers {
@@ -13,6 +15,7 @@ class RegexParser extends JavaTokenParsers {
   import RegexTree._
 
   val backslash = """\"""
+  var groupCounter = 0
 
   def number = """\d""".r.+ ^^ { s =>
     try {
@@ -181,14 +184,24 @@ class RegexParser extends JavaTokenParsers {
       import Direction._
       import Condition._
       modifiers match {
-        case None => PositionalCaptureGroup(value) // Naked parenthesis
-        case Some(_ ~ None ~ ":") => value // Non-capturing group
-        case Some(_ ~ None ~ "=") => Lookaround(Ahead, Positive, value)
-        case Some(_ ~ None ~ "!") => Lookaround(Ahead, Negative, value)
-        case Some(_ ~ Some("<") ~ ":") => throw new InvalidRegexException("Invalid grouping: <: ")
-        case Some(_ ~ Some("<") ~ "=") => Lookaround(Behind, Positive, value)
-        case Some(_ ~ Some("<") ~ "!") => Lookaround(Behind, Negative, value)
-        case _ => throw new AssertionError
+        case None =>
+          val i = groupCounter
+          groupCounter += 1
+          PositionalCaptureGroup(i, value) // Naked parenthesis
+        case Some(_ ~ None ~ ":") =>
+          value // Non-capturing group
+        case Some(_ ~ None ~ "=") =>
+          Lookaround(Ahead, Positive, value)
+        case Some(_ ~ None ~ "!") =>
+          Lookaround(Ahead, Negative, value)
+        case Some(_ ~ Some("<") ~ ":") =>
+          throw new InvalidRegexException("Invalid grouping: <: ")
+        case Some(_ ~ Some("<") ~ "=") =>
+          Lookaround(Behind, Positive, value)
+        case Some(_ ~ Some("<") ~ "!") =>
+          Lookaround(Behind, Negative, value)
+        case _ =>
+          throw new AssertionError
       }
   }
 
@@ -234,20 +247,20 @@ class RegexParser extends JavaTokenParsers {
     case parts => Juxt(parts)
   }
 
-  def emptyRegex = "" ^^^ Juxt(Seq())
+  def emptyRegex: Parser[Node] = "" ^^^ Juxt(Seq())
 
   def nonEmptyRegex: Parser[Node] = branch ~ ("|" ~ regex).? ^^ {
     case left ~ Some(_ ~ right) => Disj(Seq(left, right))
     case left ~ None => left
   }
 
-  def regex = nonEmptyRegex | emptyRegex
+  def regex: Parser[Node] = nonEmptyRegex | emptyRegex
 
 }
 
 object RegexParser extends StrictLogging {
 
-  def parse(regex: String) = {
+  def parse(regex: String): Node = {
     val parser = new RegexParser()
     parser.parseAll(parser.regex, regex) match {
       case parser.Success(ast, next) => ast

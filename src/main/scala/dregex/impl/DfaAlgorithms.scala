@@ -171,6 +171,7 @@ object DfaAlgorithms {
      * Group the list of transitions of the NFA into a nested map, for easy lookup.
      * The rest of this method will use this map instead of the original list.
      */
+    // TODO: use nfa.transitionMap
     val transitionMap = nfa.transitions.groupBy(_.from).mapValuesNow { stateTransitions =>
       stateTransitions.groupBy(_.char).mapValuesNow { states =>
         states.map(_.to).toSet

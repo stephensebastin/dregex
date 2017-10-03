@@ -1,8 +1,9 @@
 package dregex.impl
 
 import dregex.UnsupportedException
-import scala.collection.mutable.Buffer
+
 import scala.collection.immutable.Seq
+import scala.collection.mutable.Buffer
 
 /**
  * Take a regex AST and produce a NFA.
@@ -25,7 +26,7 @@ class Compiler(intervalMapping: Map[RegexTree.AbstractRange, Seq[CharInterval]])
       DfaAlgorithms.fromNfa(nfa))
   }
 
-  private def fromTreeImpl(node: Node, from: SimpleState, to: SimpleState): Seq[NfaTransition] = {
+  def fromTreeImpl(node: Node, from: SimpleState, to: SimpleState): Seq[NfaTransition] = {
     node match {
 
       // base case
@@ -61,7 +62,7 @@ class Compiler(intervalMapping: Map[RegexTree.AbstractRange, Seq[CharInterval]])
         processOp(DfaAlgorithms.diff, left, right, from, to)
 
       case cg: CaptureGroup =>
-        processCaptureGroup(cg.value, from, to)
+        processCaptureGroup(cg, from, to)
     }
   }
 
@@ -77,8 +78,8 @@ class Compiler(intervalMapping: Map[RegexTree.AbstractRange, Seq[CharInterval]])
    * NOTE: Only lookahead is currently implemented
    */
   private def processJuxt(juxt: Juxt, from: SimpleState, to: SimpleState): Seq[NfaTransition] = {
-    import Direction._
     import Condition._
+    import Direction._
     findLookaround(juxt.values) match {
       case Some(i) =>
         juxt.values(i).asInstanceOf[Lookaround] match {
@@ -113,8 +114,8 @@ class Compiler(intervalMapping: Map[RegexTree.AbstractRange, Seq[CharInterval]])
    * This optimization should be applied before the look-around's are expanded to intersections and differences.
    */
   def combineNegLookaheads(juxt: Juxt): Juxt = {
-    import Direction._
     import Condition._
+    import Direction._
     val newValues = juxt.values.foldLeft(Seq[Node]()) { (acc, x) =>
       (acc, x) match {
         case (init :+ Lookaround(Ahead, Negative, v1), Lookaround(Ahead, Negative, v2)) =>
@@ -242,12 +243,12 @@ class Compiler(intervalMapping: Map[RegexTree.AbstractRange, Seq[CharInterval]])
       NfaTransition(from, result.initial, Epsilon)
   }
 
-  def processCaptureGroup(value: Node, from: SimpleState, to: SimpleState): Seq[NfaTransition] = {
+  def processCaptureGroup(captureGroup: CaptureGroup, from: SimpleState, to: SimpleState): Seq[NfaTransition] = {
     val int1 = new SimpleState
     val int2 = new SimpleState
-    fromTreeImpl(value, int1, int2) :+
-      NfaTransition(from, int1, Epsilon) :+
-      NfaTransition(int2, to, Epsilon)
+    fromTreeImpl(captureGroup.value, int1, int2) :+
+      NfaTransition(from, int1, Epsilon, Some(captureGroup.startTag)) :+
+      NfaTransition(int2, to, Epsilon, Some(captureGroup.endTag))
   }
 
 }
